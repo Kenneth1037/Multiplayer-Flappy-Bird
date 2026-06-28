@@ -7,7 +7,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve index.html from root
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const COLORS = ['#f5c842','#ff6b6b','#6bcbff','#a8ff6b','#ff9f43','#d98fff','#ff6bce','#6bffda'];
 const GAME_STATE = { LOBBY: 'lobby', PLAYING: 'playing', SCOREBOARD: 'scoreboard' };
