@@ -16,14 +16,15 @@ input[type=text]:focus { border-color:#ffe84a; }
 button { background:#ffe84a; border:none; border-radius:8px; color:#1a1a2e; font-size:1rem; font-family:inherit; font-weight:bold; padding:12px 28px; cursor:pointer; width:100%; transition:transform 0.1s,background 0.1s; }
 button:hover { background:#ffd700; transform:translateY(-1px); }
 button:disabled { background:#666; color:#aaa; cursor:not-allowed; transform:none; }
-button.secondary { background:rgba(255,255,255,0.15); color:#fff; }
-button.secondary:hover { background:rgba(255,255,255,0.25); }
 .panel { background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:16px; width:100%; }
 .panel-title { font-size:0.75rem; color:#aaa; margin-bottom:10px; letter-spacing:1px; text-transform:uppercase; }
 #player-list { list-style:none; display:flex; flex-direction:column; gap:8px; width:100%; }
 #player-list li { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.07); border-radius:8px; padding:8px 12px; font-size:0.95rem; }
 .player-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
 .host-badge { font-size:0.7rem; background:#ffe84a; color:#1a1a2e; border-radius:4px; padding:2px 5px; font-weight:bold; margin-left:auto; }
+#timer-bar-wrap { width:100%; background:rgba(255,255,255,0.1); border-radius:8px; overflow:hidden; height:8px; margin-top:6px; }
+#timer-bar { height:8px; background:#ffe84a; border-radius:8px; transition:width 1s linear, background 0.5s; }
+#timer-text { font-size:0.85rem; text-align:center; color:#ffe84a; margin-top:10px; }
 #game-screen { display:none; position:relative; align-items:center; justify-content:center; }
 #game-screen.active { display:flex; }
 canvas { display:block; image-rendering:pixelated; }
@@ -42,74 +43,214 @@ canvas { display:block; image-rendering:pixelated; }
 </head>
 <body>
 <button id="mute-btn" aria-label="Toggle mute">🔊</button>
+
 <div id="lobby-screen" class="screen active">
   <h1>🐦 Flappy Bird</h1>
   <p style="color:#aaa;font-size:0.9rem">Multiplayer</p>
   <div class="panel"><div class="panel-title">Your Name</div><input id="name-input" type="text" placeholder="Enter your name…" maxlength="20" /></div>
-  <div class="panel"><div class="panel-title">Players in Lobby</div><ul id="player-list"></ul><p id="waiting-msg" style="margin-top:10px;color:#aaa;font-size:0.9rem">Waiting for players…</p></div>
+  <div class="panel">
+    <div class="panel-title">Players in Lobby</div>
+    <ul id="player-list"></ul>
+    <p id="waiting-msg" style="margin-top:10px;color:#aaa;font-size:0.9rem">Waiting for players…</p>
+    <div id="timer-wrap" style="display:none">
+      <p id="timer-text">Host has <span id="timer-secs">30</span>s to start or will be disconnected</p>
+      <div id="timer-bar-wrap"><div id="timer-bar" style="width:100%"></div></div>
+    </div>
+  </div>
   <button id="start-btn" disabled>Start Game</button>
   <p style="color:#888;font-size:0.8rem;text-align:center">Share this page URL with friends to invite them.</p>
 </div>
-<div id="game-screen" class="screen"><canvas id="c" role="application" aria-label="Flappy Bird game"></canvas><div id="hud"></div></div>
+
+<div id="game-screen" class="screen">
+  <canvas id="c" role="application" aria-label="Flappy Bird game"></canvas>
+  <div id="hud"></div>
+</div>
+
 <div id="scoreboard-screen" class="screen">
   <h2>🏆 Round Over</h2>
   <div class="panel" style="width:100%"><div class="panel-title">Final Scores</div><ul id="score-list"></ul></div>
   <button id="play-again-btn" style="display:none">Play Again</button>
   <p id="waiting-next" style="color:#aaa;font-size:0.85rem">Waiting for host to start next round…</p>
 </div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const CFG={W:288,H:512,gravity:1500,flapImpulse:-420,terminalVel:800,scrollSpeed:180,pipeInterval:1.6,gapH:150,groundH:80,pipeW:52,pipeMinY:80};
-let muted=false;let audioCtx;
-document.getElementById("mute-btn").addEventListener("click",()=>{muted=!muted;document.getElementById("mute-btn").textContent=muted?"🔇":"🔊";});
+let muted=false,audioCtx;
+document.getElementById('mute-btn').addEventListener('click',()=>{muted=!muted;document.getElementById('mute-btn').textContent=muted?'🔇':'🔊';});
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
-function playTone(freq,type,dur,vol=0.25,startFreq){if(muted)return;try{const ac=getAC();const osc=ac.createOscillator(),gain=ac.createGain();osc.connect(gain);gain.connect(ac.destination);osc.type=type;osc.frequency.setValueAtTime(startFreq||freq,ac.currentTime);if(startFreq)osc.frequency.linearRampToValueAtTime(freq,ac.currentTime+dur);gain.gain.setValueAtTime(vol,ac.currentTime);gain.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur);osc.start();osc.stop(ac.currentTime+dur);}catch(e){}}
-const SFX={flap:()=>playTone(600,"square",0.08,0.18,400),point:()=>playTone(880,"sine",0.12,0.25,660),hit:()=>playTone(150,"sawtooth",0.3,0.35),die:()=>playTone(80,"sawtooth",0.5,0.35,200)};
-const canvas=document.getElementById("c");const ctx=canvas.getContext("2d");let scale=1;
+function playTone(f,t,d,v,sf){v=v||0.25;if(muted)return;try{const ac=getAC(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type=t;o.frequency.setValueAtTime(sf||f,ac.currentTime);if(sf)o.frequency.linearRampToValueAtTime(f,ac.currentTime+d);g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+const SFX={flap:()=>playTone(600,'square',0.08,0.18,400),point:()=>playTone(880,'sine',0.12,0.25,660),hit:()=>playTone(150,'sawtooth',0.3,0.35),die:()=>playTone(80,'sawtooth',0.5,0.35,200)};
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');let scale=1;
 function resize(){scale=Math.min(window.innerWidth/CFG.W,window.innerHeight/CFG.H);canvas.width=CFG.W*scale;canvas.height=CFG.H*scale;ctx.setTransform(scale,0,0,scale,0,0);}
-resize();window.addEventListener("resize",resize);
-function makeRng(seed){let s=seed;return function(){s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};}
+resize();window.addEventListener('resize',resize);
+function makeRng(seed){let s=seed;return()=>{s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};}
+
 const socket=io();
-let myId=null,myColor="#f5c842",isHost=false,gameState="lobby";
+let myId=null,myColor='#f5c842',isHost=false,gameState='lobby';
 const remotePlayers={};
-socket.on("welcome",(data)=>{myId=data.id;myColor=data.color;isHost=data.isHost;gameState=data.state;updateStartBtn();if(data.state==="playing")showScreen("game-screen");if(data.state==="scoreboard")showScreen("scoreboard-screen");});
-socket.on("you_are_host",()=>{isHost=true;updateStartBtn();document.getElementById("play-again-btn").style.display="block";document.getElementById("waiting-next").style.display="none";});
-socket.on("lobby_update",(data)=>{renderLobby(data);gameState=data.state;updateStartBtn();});
-socket.on("player_left",(data)=>{delete remotePlayers[data.id];updateHUD();});
-socket.on("game_start",(data)=>{gameState="playing";showScreen("game-screen");startGame(data.pipeSeed);});
-socket.on("player_update",(data)=>{if(remotePlayers[data.id]){remotePlayers[data.id].y=data.y;remotePlayers[data.id].angle=data.angle;remotePlayers[data.id].score=data.score;}});
-socket.on("player_died",(data)=>{if(remotePlayers[data.id]){remotePlayers[data.id].alive=false;remotePlayers[data.id].score=data.score;updateHUD();}});
-socket.on("game_over",(data)=>{gameState="scoreboard";stopGame();showScoreboard(data.scores);});
-function renderLobby({players,hostId}){
-  const ul=document.getElementById("player-list");ul.innerHTML="";
-  players.forEach(p=>{if(p.id!==myId){remotePlayers[p.id]=remotePlayers[p.id]||{};Object.assign(remotePlayers[p.id],{color:p.color,name:p.name,alive:true,y:256,angle:0,score:0});}});
-  players.forEach(p=>{const li=document.createElement("li");const dot=`<span class="player-dot" style="background:${p.color}"></span>`;const badge=p.id===hostId?"<span class=\"host-badge\">HOST</span>":"";const you=p.id===myId?" <span style=\"color:#aaa;font-size:0.8rem\">(you)</span>":"";li.innerHTML=dot+"<span>"+p.name+you+"</span>"+badge;ul.appendChild(li);});
-  document.getElementById("waiting-msg").style.display=players.length===0?"block":"none";
+
+socket.on('welcome',(d)=>{myId=d.id;myColor=d.color;isHost=d.isHost;gameState=d.state;updateStartBtn();});
+socket.on('you_are_host',()=>{isHost=true;updateStartBtn();document.getElementById('play-again-btn').style.display='block';document.getElementById('waiting-next').style.display='none';});
+socket.on('host_timeout',()=>{alert('You were removed as host for not starting the game in time.');});
+socket.on('lobby_update',(data)=>{renderLobby(data);gameState=data.state;updateStartBtn();updateTimer(data.timerSecsLeft);});
+socket.on('player_left',(d)=>{delete remotePlayers[d.id];updateHUD();});
+socket.on('game_start',(d)=>{gameState='playing';showScreen('game-screen');startGame(d.pipeSeed);});
+socket.on('player_update',(d)=>{if(remotePlayers[d.id]){remotePlayers[d.id].y=d.y;remotePlayers[d.id].angle=d.angle;remotePlayers[d.id].score=d.score;}});
+socket.on('player_died',(d)=>{if(remotePlayers[d.id]){remotePlayers[d.id].alive=false;remotePlayers[d.id].score=d.score;updateHUD();}});
+socket.on('game_over',(d)=>{gameState='scoreboard';stopGame();showScoreboard(d.scores);});
+
+function updateTimer(secsLeft){
+  const wrap=document.getElementById('timer-wrap');
+  const bar=document.getElementById('timer-bar');
+  const txt=document.getElementById('timer-secs');
+  if(secsLeft===null||secsLeft===undefined){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  txt.textContent=secsLeft;
+  bar.style.width=(secsLeft/30*100)+'%';
+  bar.style.background=secsLeft<=10?'#ff6b6b':secsLeft<=20?'#ff9f43':'#ffe84a';
 }
-function updateStartBtn(){const btn=document.getElementById("start-btn");btn.disabled=!isHost;btn.textContent=isHost?"Start Game":"Waiting for host…";}
-document.getElementById("start-btn").addEventListener("click",()=>{if(isHost)socket.emit("start_game");});
-document.getElementById("name-input").addEventListener("input",e=>{socket.emit("set_name",e.target.value.trim()||"Bird");});
-document.getElementById("play-again-btn").addEventListener("click",()=>socket.emit("start_game"));
-function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");}
-function updateHUD(){const hud=document.getElementById("hud");hud.innerHTML="";const myDiv=document.createElement("div");myDiv.className="hud-score"+(myBird&&!myBird.alive?" dead":"");myDiv.innerHTML=`<span class="hud-dot" style="background:${myColor}"></span>${score}`;hud.appendChild(myDiv);Object.values(remotePlayers).forEach(p=>{const d=document.createElement("div");d.className="hud-score"+(!p.alive?" dead":"");d.innerHTML=`<span class="hud-dot" style="background:${p.color}"></span>${p.score||0}`;hud.appendChild(d);});}
-function showScoreboard(scores){showScreen("scoreboard-screen");const ul=document.getElementById("score-list");ul.innerHTML="";const medals=["🥇","🥈","🥉"];scores.forEach((p,i)=>{const li=document.createElement("li");const winner=i===0?"<span class=\"winner-badge\">WINNER</span>":"";const you=p.id===myId?" <span style=\"color:#aaa;font-size:0.8rem\">(you)</span>":"";li.innerHTML=`<span class="rank">${medals[i]||(i+1)}</span><span class="player-dot" style="background:${p.color}"></span><span class="score-name">${p.name}${you}</span>${winner}<span class="score-val">${p.score}</span>`;ul.appendChild(li);});if(isHost){document.getElementById("play-again-btn").style.display="block";document.getElementById("waiting-next").style.display="none";}else{document.getElementById("play-again-btn").style.display="none";document.getElementById("waiting-next").style.display="block";}}
+
+function renderLobby({players,hostId}){
+  const ul=document.getElementById('player-list');ul.innerHTML='';
+  players.forEach(p=>{if(p.id!==myId){remotePlayers[p.id]=remotePlayers[p.id]||{};Object.assign(remotePlayers[p.id],{color:p.color,name:p.name,alive:true,y:256,angle:0,score:0});}});
+  players.forEach(p=>{
+    const li=document.createElement('li');
+    const dot='<span class="player-dot" style="background:'+p.color+'"></span>';
+    const badge=p.id===hostId?'<span class="host-badge">HOST</span>':'';
+    const you=p.id===myId?' <span style="color:#aaa;font-size:0.8rem">(you)</span>':'';
+    li.innerHTML=dot+'<span>'+p.name+you+'</span>'+badge;
+    ul.appendChild(li);
+  });
+  document.getElementById('waiting-msg').style.display=players.length<2?'block':'none';
+}
+
+function updateStartBtn(){const btn=document.getElementById('start-btn');btn.disabled=!isHost;btn.textContent=isHost?'Start Game':'Waiting for host…';}
+document.getElementById('start-btn').addEventListener('click',()=>{if(isHost)socket.emit('start_game');});
+document.getElementById('name-input').addEventListener('input',e=>socket.emit('set_name',e.target.value.trim()||'Bird'));
+document.getElementById('play-again-btn').addEventListener('click',()=>socket.emit('start_game'));
+
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+
+function updateHUD(){
+  const hud=document.getElementById('hud');hud.innerHTML='';
+  const myDiv=document.createElement('div');
+  myDiv.className='hud-score'+(myBird&&!myBird.alive?' dead':'');
+  myDiv.innerHTML='<span class="hud-dot" style="background:'+myColor+'"></span>'+score;
+  hud.appendChild(myDiv);
+  Object.values(remotePlayers).forEach(p=>{
+    const d=document.createElement('div');
+    d.className='hud-score'+(!p.alive?' dead':'');
+    d.innerHTML='<span class="hud-dot" style="background:'+p.color+'"></span>'+(p.score||0);
+    hud.appendChild(d);
+  });
+}
+
+function showScoreboard(scores){
+  showScreen('scoreboard-screen');
+  const ul=document.getElementById('score-list');ul.innerHTML='';
+  const medals=['🥇','🥈','🥉'];
+  scores.forEach((p,i)=>{
+    const li=document.createElement('li');
+    const winner=i===0?'<span class="winner-badge">WINNER</span>':'';
+    const you=p.id===myId?' <span style="color:#aaa;font-size:0.8rem">(you)</span>':'';
+    li.innerHTML='<span class="rank">'+(medals[i]||(i+1))+'</span><span class="player-dot" style="background:'+p.color+'"></span><span class="score-name">'+p.name+you+'</span>'+winner+'<span class="score-val">'+p.score+'</span>';
+    ul.appendChild(li);
+  });
+  if(isHost){document.getElementById('play-again-btn').style.display='block';document.getElementById('waiting-next').style.display='none';}
+  else{document.getElementById('play-again-btn').style.display='none';document.getElementById('waiting-next').style.display='block';}
+}
+
 let myBird,pipes,score,pipeTimer,bgX,groundX,rng,rafId=null,last=0,posUpdateTimer=0;
-function startGame(seed){rng=makeRng(seed);myBird={x:60,y:CFG.H/2-20,vy:0,angle:0,frame:0,frameTimer:0,alive:true};pipes=[];score=0;pipeTimer=CFG.pipeInterval;bgX=0;groundX=0;Object.values(remotePlayers).forEach(p=>{p.alive=true;p.score=0;p.y=CFG.H/2-20;p.angle=0;});updateHUD();if(rafId)cancelAnimationFrame(rafId);last=performance.now();rafId=requestAnimationFrame(loop);}
+
+function startGame(seed){
+  rng=makeRng(seed);
+  myBird={x:60,y:CFG.H/2-20,vy:0,angle:0,frame:0,frameTimer:0,alive:true};
+  pipes=[];score=0;pipeTimer=CFG.pipeInterval;bgX=0;groundX=0;
+  Object.values(remotePlayers).forEach(p=>{p.alive=true;p.score=0;p.y=CFG.H/2-20;p.angle=0;});
+  updateHUD();
+  if(rafId)cancelAnimationFrame(rafId);
+  last=performance.now();
+  rafId=requestAnimationFrame(loop);
+}
 function stopGame(){if(rafId){cancelAnimationFrame(rafId);rafId=null;}}
 function loop(ts){const dt=Math.min((ts-last)/1000,0.05);last=ts;update(dt);draw();rafId=requestAnimationFrame(loop);}
 function flap(){if(!myBird||!myBird.alive)return;myBird.vy=CFG.flapImpulse;SFX.flap();}
-function spawnPipe(){const maxTopH=CFG.H-CFG.groundH-CFG.gapH-CFG.pipeMinY;const topH=CFG.pipeMinY+rng()*maxTopH;pipes.push({x:CFG.W+4,topH,scored:false});}
-function update(dt){bgX+=CFG.scrollSpeed*0.5*dt;groundX+=CFG.scrollSpeed*dt;pipeTimer-=dt;if(pipeTimer<=0){spawnPipe();pipeTimer=CFG.pipeInterval;}for(let i=pipes.length-1;i>=0;i--){pipes[i].x-=CFG.scrollSpeed*dt;if(pipes[i].x+CFG.pipeW<-10)pipes.splice(i,1);}if(!myBird.alive)return;myBird.vy=Math.min(myBird.vy+CFG.gravity*dt,CFG.terminalVel);myBird.y+=myBird.vy*dt;const ta=myBird.vy<0?-0.35:Math.min(Math.PI/2,(myBird.vy/CFG.terminalVel)*(Math.PI/2));myBird.angle+=(ta-myBird.angle)*Math.min(1,dt*8);myBird.frameTimer+=dt;if(myBird.frameTimer>0.1){myBird.frame=(myBird.frame+1)%3;myBird.frameTimer=0;}if(myBird.y<-10){myBird.y=-10;myBird.vy=0;}pipes.forEach(p=>{if(!p.scored&&p.x+CFG.pipeW<myBird.x){p.scored=true;score++;SFX.point();updateHUD();}});const br={x:myBird.x+4,y:myBird.y+2,w:26,h:22};for(const p of pipes){if(ro(br,{x:p.x,y:0,w:CFG.pipeW,h:p.topH})||ro(br,{x:p.x,y:p.topH+CFG.gapH,w:CFG.pipeW,h:CFG.H})){kill();return;}}if(myBird.y+24>=CFG.H-CFG.groundH){kill();return;}posUpdateTimer+=dt;if(posUpdateTimer>=0.05){posUpdateTimer=0;socket.emit("position",{y:myBird.y,angle:myBird.angle,score});}}
-function kill(){myBird.alive=false;SFX.hit();setTimeout(()=>SFX.die(),200);socket.emit("player_died",{score});updateHUD();}
+function spawnPipe(){const maxTopH=CFG.H-CFG.groundH-CFG.gapH-CFG.pipeMinY;pipes.push({x:CFG.W+4,topH:CFG.pipeMinY+rng()*maxTopH,scored:false});}
+
+function update(dt){
+  bgX+=CFG.scrollSpeed*0.5*dt;groundX+=CFG.scrollSpeed*dt;
+  pipeTimer-=dt;if(pipeTimer<=0){spawnPipe();pipeTimer=CFG.pipeInterval;}
+  for(let i=pipes.length-1;i>=0;i--){pipes[i].x-=CFG.scrollSpeed*dt;if(pipes[i].x+CFG.pipeW<-10)pipes.splice(i,1);}
+  if(!myBird.alive)return;
+  myBird.vy=Math.min(myBird.vy+CFG.gravity*dt,CFG.terminalVel);
+  myBird.y+=myBird.vy*dt;
+  const ta=myBird.vy<0?-0.35:Math.min(Math.PI/2,(myBird.vy/CFG.terminalVel)*(Math.PI/2));
+  myBird.angle+=(ta-myBird.angle)*Math.min(1,dt*8);
+  myBird.frameTimer+=dt;if(myBird.frameTimer>0.1){myBird.frame=(myBird.frame+1)%3;myBird.frameTimer=0;}
+  if(myBird.y<-10){myBird.y=-10;myBird.vy=0;}
+  pipes.forEach(p=>{if(!p.scored&&p.x+CFG.pipeW<myBird.x){p.scored=true;score++;SFX.point();updateHUD();}});
+  const br={x:myBird.x+4,y:myBird.y+2,w:26,h:22};
+  for(const p of pipes){
+    if(ro(br,{x:p.x,y:0,w:CFG.pipeW,h:p.topH})||ro(br,{x:p.x,y:p.topH+CFG.gapH,w:CFG.pipeW,h:CFG.H})){kill();return;}
+  }
+  if(myBird.y+24>=CFG.H-CFG.groundH){kill();return;}
+  posUpdateTimer+=dt;if(posUpdateTimer>=0.05){posUpdateTimer=0;socket.emit('position',{y:myBird.y,angle:myBird.angle,score});}
+}
+function kill(){myBird.alive=false;SFX.hit();setTimeout(()=>SFX.die(),200);socket.emit('player_died',{score});updateHUD();}
 function ro(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
-function draw(){ctx.clearRect(0,0,CFG.W,CFG.H);drawBg();pipes.forEach(p=>{drawPipe(p.x,0,p.topH,true);drawPipe(p.x,p.topH+CFG.gapH,CFG.H-CFG.groundH-p.topH-CFG.gapH,false);});drawGround();Object.values(remotePlayers).forEach(p=>{if(p.alive)drawBird(60,p.y,p.angle,0,p.color,0.4);});if(myBird){if(myBird.alive)drawBird(myBird.x,myBird.y,myBird.angle,myBird.frame,myColor,1);else drawBird(myBird.x,Math.min(myBird.y,CFG.H-CFG.groundH-24),Math.PI/2,0,myColor,0.4);}Object.values(remotePlayers).forEach(p=>{if(p.alive){ctx.save();ctx.font="bold 9px Courier New";ctx.textAlign="center";ctx.fillStyle=p.color;ctx.fillText(p.name,77,p.y-6);ctx.restore();}});}
-function drawBg(){const sky=ctx.createLinearGradient(0,0,0,CFG.H-CFG.groundH);sky.addColorStop(0,"#70c5ce");sky.addColorStop(1,"#c9eaf5");ctx.fillStyle=sky;ctx.fillRect(0,0,CFG.W,CFG.H-CFG.groundH);const clouds=[{x:40,y:60,r:22},{x:140,y:40,r:18},{x:230,y:80,r:20}];ctx.fillStyle="rgba(255,255,255,0.85)";clouds.forEach(c=>{const cx=((c.x-bgX*0.4)%(CFG.W+80)+CFG.W+80)%(CFG.W+80)-40;ctx.beginPath();ctx.arc(cx,c.y,c.r,0,Math.PI*2);ctx.arc(cx+20,c.y-8,c.r*0.7,0,Math.PI*2);ctx.arc(cx-18,c.y-4,c.r*0.6,0,Math.PI*2);ctx.fill();});}
-function drawGround(){const gY=CFG.H-CFG.groundH;ctx.fillStyle="#dda64a";ctx.fillRect(0,gY,CFG.W,CFG.groundH);ctx.fillStyle="#5d8a30";ctx.fillRect(0,gY,CFG.W,16);ctx.fillStyle="#4a7025";for(let bx=((-groundX*0.8)%24+24)%24;bx<CFG.W+24;bx+=24)ctx.fillRect(bx,gY,8,16);}
-function drawPipe(x,y,h,flipped){const w=CFG.pipeW,capH=16,capW=w+8;const g=ctx.createLinearGradient(x,0,x+w,0);g.addColorStop(0,"#5bc44a");g.addColorStop(0.3,"#78e85a");g.addColorStop(0.7,"#5bc44a");g.addColorStop(1,"#3a8f2e");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.strokeStyle="#2e7023";ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);const capX=x-(capW-w)/2;const capY=flipped?y+h-capH:y;ctx.fillStyle=g;ctx.fillRect(capX,capY,capW,capH);ctx.strokeRect(capX,capY,capW,capH);}
-function drawBird(x,y,angle,frame,color,alpha){ctx.save();ctx.globalAlpha=alpha;ctx.translate(x+17,y+12);ctx.rotate(angle);ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,17,12,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle="rgba(0,0,0,0.3)";ctx.lineWidth=1.5;ctx.stroke();const wingY=frame===1?-6:frame===2?6:0;ctx.fillStyle="rgba(255,255,255,0.3)";ctx.beginPath();ctx.ellipse(-3,wingY,8,5,-0.3,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.ellipse(8,-3,5,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#222";ctx.beginPath();ctx.ellipse(9,-3,3,3,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.fillRect(9,-5,2,2);ctx.fillStyle="#f07b1d";ctx.beginPath();ctx.moveTo(14,-1);ctx.lineTo(22,2);ctx.lineTo(14,5);ctx.closePath();ctx.fill();ctx.restore();}
-document.addEventListener("keydown",e=>{if(e.code==="Space"&&gameState==="playing"){e.preventDefault();flap();}});
-canvas.addEventListener("click",()=>{if(gameState==="playing")flap();});
-canvas.addEventListener("touchstart",e=>{e.preventDefault();if(gameState==="playing")flap();},{passive:false});
+
+function draw(){
+  ctx.clearRect(0,0,CFG.W,CFG.H);drawBg();
+  pipes.forEach(p=>{drawPipe(p.x,0,p.topH,true);drawPipe(p.x,p.topH+CFG.gapH,CFG.H-CFG.groundH-p.topH-CFG.gapH,false);});
+  drawGround();
+  Object.values(remotePlayers).forEach(p=>{if(p.alive)drawBird(60,p.y,p.angle,0,p.color,0.4);});
+  if(myBird){
+    if(myBird.alive)drawBird(myBird.x,myBird.y,myBird.angle,myBird.frame,myColor,1);
+    else drawBird(myBird.x,Math.min(myBird.y,CFG.H-CFG.groundH-24),Math.PI/2,0,myColor,0.4);
+  }
+  Object.values(remotePlayers).forEach(p=>{
+    if(p.alive){ctx.save();ctx.font='bold 9px Courier New';ctx.textAlign='center';ctx.fillStyle=p.color;ctx.fillText(p.name,77,p.y-6);ctx.restore();}
+  });
+}
+function drawBg(){
+  const sky=ctx.createLinearGradient(0,0,0,CFG.H-CFG.groundH);
+  sky.addColorStop(0,'#70c5ce');sky.addColorStop(1,'#c9eaf5');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,CFG.W,CFG.H-CFG.groundH);
+  const clouds=[{x:40,y:60,r:22},{x:140,y:40,r:18},{x:230,y:80,r:20}];
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  clouds.forEach(c=>{const cx=((c.x-bgX*0.4)%(CFG.W+80)+CFG.W+80)%(CFG.W+80)-40;ctx.beginPath();ctx.arc(cx,c.y,c.r,0,Math.PI*2);ctx.arc(cx+20,c.y-8,c.r*0.7,0,Math.PI*2);ctx.arc(cx-18,c.y-4,c.r*0.6,0,Math.PI*2);ctx.fill();});
+}
+function drawGround(){
+  const gY=CFG.H-CFG.groundH;
+  ctx.fillStyle='#dda64a';ctx.fillRect(0,gY,CFG.W,CFG.groundH);
+  ctx.fillStyle='#5d8a30';ctx.fillRect(0,gY,CFG.W,16);
+  ctx.fillStyle='#4a7025';
+  for(let bx=((-groundX*0.8)%24+24)%24;bx<CFG.W+24;bx+=24)ctx.fillRect(bx,gY,8,16);
+}
+function drawPipe(x,y,h,flipped){
+  const w=CFG.pipeW,capH=16,capW=w+8;
+  const g=ctx.createLinearGradient(x,0,x+w,0);
+  g.addColorStop(0,'#5bc44a');g.addColorStop(0.3,'#78e85a');g.addColorStop(0.7,'#5bc44a');g.addColorStop(1,'#3a8f2e');
+  ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.strokeStyle='#2e7023';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+  const capX=x-(capW-w)/2,capY=flipped?y+h-capH:y;
+  ctx.fillStyle=g;ctx.fillRect(capX,capY,capW,capH);ctx.strokeRect(capX,capY,capW,capH);
+}
+function drawBird(x,y,angle,frame,color,alpha){
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(x+17,y+12);ctx.rotate(angle);
+  ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,17,12,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=1.5;ctx.stroke();
+  const wy=frame===1?-6:frame===2?6:0;
+  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.beginPath();ctx.ellipse(-3,wy,8,5,-0.3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(8,-3,5,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.ellipse(9,-3,3,3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillRect(9,-5,2,2);
+  ctx.fillStyle='#f07b1d';ctx.beginPath();ctx.moveTo(14,-1);ctx.lineTo(22,2);ctx.lineTo(14,5);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&gameState==='playing'){e.preventDefault();flap();}});
+canvas.addEventListener('click',()=>{if(gameState==='playing')flap();});
+canvas.addEventListener('touchstart',e=>{e.preventDefault();if(gameState==='playing')flap();},{passive:false});
 </script>
 </body>
 </html>
