@@ -7,99 +7,289 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#1a1a2e; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:"Courier New",monospace; color:#fff; overflow:hidden; }
-.screen { display:none; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px; padding:24px; }
+.screen { display:none; flex-direction:column; align-items:center; gap:14px; width:100%; max-width:420px; padding:20px; }
 .screen.active { display:flex; }
 h1 { font-size:2rem; color:#ffe84a; text-shadow:2px 2px 0 #000; letter-spacing:2px; }
 h2 { font-size:1.4rem; color:#ffe84a; text-shadow:1px 1px 0 #000; }
 input[type=text] { background:rgba(255,255,255,0.1); border:2px solid rgba(255,255,255,0.3); border-radius:8px; color:#fff; font-size:1rem; font-family:inherit; padding:10px 14px; width:100%; outline:none; }
 input[type=text]:focus { border-color:#ffe84a; }
+input[type=text]::placeholder { color:rgba(255,255,255,0.4); }
 button { background:#ffe84a; border:none; border-radius:8px; color:#1a1a2e; font-size:1rem; font-family:inherit; font-weight:bold; padding:12px 28px; cursor:pointer; width:100%; transition:transform 0.1s,background 0.1s; }
 button:hover { background:#ffd700; transform:translateY(-1px); }
-button:disabled { background:#666; color:#aaa; cursor:not-allowed; transform:none; }
-.panel { background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:16px; width:100%; }
-.panel-title { font-size:0.75rem; color:#aaa; margin-bottom:10px; letter-spacing:1px; text-transform:uppercase; }
-#player-list { list-style:none; display:flex; flex-direction:column; gap:8px; width:100%; }
-#player-list li { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.07); border-radius:8px; padding:8px 12px; font-size:0.95rem; }
-.player-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
-.host-badge { font-size:0.7rem; background:#ffe84a; color:#1a1a2e; border-radius:4px; padding:2px 5px; font-weight:bold; margin-left:auto; }
-#timer-bar-wrap { width:100%; background:rgba(255,255,255,0.1); border-radius:8px; overflow:hidden; height:8px; margin-top:6px; }
-#timer-bar { height:8px; background:#ffe84a; border-radius:8px; transition:width 1s linear, background 0.5s; }
-#timer-text { font-size:0.85rem; text-align:center; color:#ffe84a; margin-top:10px; }
+button:disabled { background:#555; color:#888; cursor:not-allowed; transform:none; }
+.panel { background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:14px; width:100%; }
+.panel-title { font-size:0.72rem; color:#aaa; margin-bottom:8px; letter-spacing:1px; text-transform:uppercase; }
+#player-list { list-style:none; display:flex; flex-direction:column; gap:6px; }
+#player-list li { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.07); border-radius:8px; padding:7px 10px; font-size:0.9rem; }
+.player-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.host-badge { font-size:0.68rem; background:#ffe84a; color:#1a1a2e; border-radius:4px; padding:2px 5px; font-weight:bold; margin-left:auto; }
+#timer-bar-wrap { width:100%; background:rgba(255,255,255,0.1); border-radius:8px; overflow:hidden; height:7px; margin-top:6px; }
+#timer-bar { height:7px; background:#ffe84a; border-radius:8px; transition:width 1s linear,background 0.5s; }
+#timer-text { font-size:0.8rem; text-align:center; color:#ffe84a; margin-top:8px; }
+
+/* Chat */
+.chat-msgs { height:100px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding-right:2px; }
+.chat-msgs::-webkit-scrollbar { width:4px; }
+.chat-msgs::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:2px; }
+.chat-line { font-size:0.78rem; line-height:1.35; word-break:break-word; }
+.chat-name { font-weight:bold; }
+.chat-row { display:flex; gap:6px; margin-top:8px; }
+.chat-row input { flex:1; padding:8px 10px; font-size:0.85rem; }
+.chat-row button { width:auto; padding:8px 14px; font-size:0.85rem; flex-shrink:0; }
+
+/* Game screen */
 #game-screen { display:none; position:relative; align-items:center; justify-content:center; }
 #game-screen.active { display:flex; }
 canvas { display:block; image-rendering:pixelated; }
-#hud { position:absolute; top:10px; left:50%; transform:translateX(-50%); display:flex; gap:12px; align-items:flex-start; pointer-events:none; }
-.hud-score { background:rgba(0,0,0,0.5); border-radius:8px; padding:4px 10px; font-size:1.1rem; font-weight:bold; white-space:nowrap; display:flex; align-items:center; gap:6px; }
-.hud-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+#hud { position:absolute; top:10px; left:50%; transform:translateX(-50%); display:flex; gap:10px; pointer-events:none; }
+.hud-score { background:rgba(0,0,0,0.55); border-radius:8px; padding:4px 9px; font-size:1rem; font-weight:bold; white-space:nowrap; display:flex; align-items:center; gap:5px; }
+.hud-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
 .hud-score.dead { opacity:0.4; text-decoration:line-through; }
-#mute-btn { position:fixed; top:12px; right:12px; background:rgba(0,0,0,0.45); border:none; color:#fff; font-size:18px; width:34px; height:34px; border-radius:50%; cursor:pointer; z-index:100; line-height:34px; text-align:center; }
-#score-list { list-style:none; width:100%; display:flex; flex-direction:column; gap:8px; }
-#score-list li { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.07); border-radius:8px; padding:10px 14px; }
-.rank { font-size:1.3rem; width:28px; text-align:center; }
+
+/* Countdown overlay */
+#countdown-overlay { display:none; position:absolute; top:0;left:0;right:0;bottom:0; align-items:center; justify-content:center; pointer-events:none; z-index:20; }
+#countdown-overlay.active { display:flex; }
+#countdown-num { font-size:7rem; font-weight:bold; color:#fff; text-shadow:0 0 30px rgba(255,232,74,0.9),3px 3px 0 #000; animation:countPop 0.35s ease-out; }
+@keyframes countPop { from { transform:scale(1.8); opacity:0; } to { transform:scale(1); opacity:1; } }
+
+/* Floating chat messages */
+#float-layer { position:absolute; top:0;left:0;right:0;bottom:0; overflow:hidden; pointer-events:none; z-index:10; }
+.float-msg { position:absolute; right:-350px; font-size:11px; font-family:"Courier New",monospace; text-shadow:1px 1px 2px rgba(0,0,0,0.9); white-space:nowrap; animation:floatAcross 7s linear forwards; }
+@keyframes floatAcross { from{transform:translateX(0);opacity:1} 85%{opacity:0.85} to{transform:translateX(-780px);opacity:0} }
+
+/* In-game chat bar (dead players) */
+#game-chat-bar { display:none; position:fixed; bottom:0;left:0;right:0; background:rgba(0,0,0,0.7); border-top:1px solid rgba(255,255,255,0.15); padding:8px 12px; z-index:30; flex-direction:row; gap:8px; align-items:center; }
+#game-chat-bar.active { display:flex; }
+#game-chat-in { flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); border-radius:6px; color:#fff; font-family:"Courier New",monospace; font-size:0.82rem; padding:7px 10px; outline:none; }
+#game-chat-in::placeholder { color:rgba(255,255,255,0.4); }
+#game-chat-in:focus { border-color:#ffe84a; }
+#game-chat-send { background:#ffe84a; border:none; border-radius:6px; color:#1a1a2e; font-family:inherit; font-weight:bold; font-size:0.82rem; padding:7px 14px; cursor:pointer; white-space:nowrap; }
+#dead-label { font-size:0.75rem; color:#ff6b6b; white-space:nowrap; }
+
+/* Mute */
+#mute-btn { position:fixed; top:12px; right:12px; background:rgba(0,0,0,0.5); border:none; color:#fff; font-size:17px; width:32px; height:32px; border-radius:50%; cursor:pointer; z-index:100; line-height:32px; text-align:center; }
+
+/* Scoreboard */
+#score-list { list-style:none; width:100%; display:flex; flex-direction:column; gap:7px; }
+#score-list li { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.07); border-radius:8px; padding:9px 12px; }
+.rank { font-size:1.25rem; width:26px; text-align:center; }
 .score-name { flex:1; }
-.score-val { font-size:1.2rem; font-weight:bold; color:#ffe84a; }
-.winner-badge { font-size:0.75rem; background:#ffe84a; color:#1a1a2e; border-radius:4px; padding:2px 6px; font-weight:bold; }
+.score-val { font-size:1.1rem; font-weight:bold; color:#ffe84a; }
+.winner-badge { font-size:0.68rem; background:#ffe84a; color:#1a1a2e; border-radius:4px; padding:2px 5px; font-weight:bold; }
 </style>
 </head>
 <body>
-<button id="mute-btn" aria-label="Toggle mute">🔊</button>
+<button id="mute-btn">🔊</button>
 
+<!-- LOBBY -->
 <div id="lobby-screen" class="screen active">
   <h1>🐦 Flappy Bird</h1>
-  <p style="color:#aaa;font-size:0.9rem">Multiplayer</p>
-  <div class="panel"><div class="panel-title">Your Name</div><input id="name-input" type="text" placeholder="Enter your name…" maxlength="20" /></div>
+  <p style="color:#aaa;font-size:0.85rem">Multiplayer</p>
+
+  <div class="panel">
+    <div class="panel-title">Your Name</div>
+    <input id="name-input" type="text" placeholder="Enter your name…" maxlength="20">
+  </div>
+
   <div class="panel">
     <div class="panel-title">Players in Lobby</div>
     <ul id="player-list"></ul>
-    <p id="waiting-msg" style="margin-top:10px;color:#aaa;font-size:0.9rem">Waiting for players…</p>
+    <p id="waiting-msg" style="margin-top:8px;color:#aaa;font-size:0.85rem">Waiting for players…</p>
     <div id="timer-wrap" style="display:none">
       <p id="timer-text">Host has <span id="timer-secs">30</span>s to start or will be disconnected</p>
       <div id="timer-bar-wrap"><div id="timer-bar" style="width:100%"></div></div>
     </div>
   </div>
+
+  <div class="panel">
+    <div class="panel-title">Chat</div>
+    <div class="chat-msgs" id="lobby-chat"></div>
+    <div class="chat-row">
+      <input id="lobby-chat-in" type="text" placeholder="Say something…" maxlength="100">
+      <button id="lobby-chat-send">Send</button>
+    </div>
+  </div>
+
   <button id="start-btn" disabled>Start Game</button>
-  <p style="color:#888;font-size:0.8rem;text-align:center">Share this page URL with friends to invite them.</p>
+  <p style="color:#777;font-size:0.78rem;text-align:center">Share this page URL with friends to invite them.</p>
 </div>
 
+<!-- GAME -->
 <div id="game-screen" class="screen">
-  <canvas id="c" role="application" aria-label="Flappy Bird game"></canvas>
+  <canvas id="c"></canvas>
   <div id="hud"></div>
+  <div id="float-layer"></div>
+  <div id="countdown-overlay"><span id="countdown-num">5</span></div>
 </div>
 
+<!-- SCOREBOARD -->
 <div id="scoreboard-screen" class="screen">
   <h2>🏆 Round Over</h2>
-  <div class="panel" style="width:100%"><div class="panel-title">Final Scores</div><ul id="score-list"></ul></div>
+  <div class="panel" style="width:100%">
+    <div class="panel-title">Final Scores</div>
+    <ul id="score-list"></ul>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Chat</div>
+    <div class="chat-msgs" id="score-chat"></div>
+    <div class="chat-row">
+      <input id="score-chat-in" type="text" placeholder="Say something…" maxlength="100">
+      <button id="score-chat-send">Send</button>
+    </div>
+  </div>
   <button id="play-again-btn" style="display:none">Play Again</button>
-  <p id="waiting-next" style="color:#aaa;font-size:0.85rem">Waiting for host to start next round…</p>
+  <p id="waiting-next" style="color:#aaa;font-size:0.82rem">Waiting for host to start next round…</p>
+</div>
+
+<!-- GAME CHAT BAR (dead players) -->
+<div id="game-chat-bar">
+  <span id="dead-label">💀 You died —</span>
+  <input id="game-chat-in" type="text" placeholder="Taunt survivors…" maxlength="100">
+  <button id="game-chat-send">Send</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const CFG={W:288,H:512,gravity:1500,flapImpulse:-420,terminalVel:800,scrollSpeed:180,pipeInterval:1.6,gapH:150,groundH:80,pipeW:52,pipeMinY:80};
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CFG={W:288,H:512,gravity:1500,flapImpulse:-420,terminalVel:800,scrollSpeed:180,
+  pipeInterval:1.6,gapH:150,groundH:80,pipeW:52,pipeMinY:80};
+
+// ─── AUDIO ────────────────────────────────────────────────────────────────────
 let muted=false,audioCtx;
-document.getElementById('mute-btn').addEventListener('click',()=>{muted=!muted;document.getElementById('mute-btn').textContent=muted?'🔇':'🔊';});
+document.getElementById('mute-btn').addEventListener('click',()=>{
+  muted=!muted;document.getElementById('mute-btn').textContent=muted?'🔇':'🔊';
+});
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
-function playTone(f,t,d,v,sf){v=v||0.25;if(muted)return;try{const ac=getAC(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type=t;o.frequency.setValueAtTime(sf||f,ac.currentTime);if(sf)o.frequency.linearRampToValueAtTime(f,ac.currentTime+d);g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
-const SFX={flap:()=>playTone(600,'square',0.08,0.18,400),point:()=>playTone(880,'sine',0.12,0.25,660),hit:()=>playTone(150,'sawtooth',0.3,0.35),die:()=>playTone(80,'sawtooth',0.5,0.35,200)};
-const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');let scale=1;
-function resize(){scale=Math.min(window.innerWidth/CFG.W,window.innerHeight/CFG.H);canvas.width=CFG.W*scale;canvas.height=CFG.H*scale;ctx.setTransform(scale,0,0,scale,0,0);}
+function playTone(f,t,d,v,sf){
+  v=v||0.25;if(muted)return;
+  try{const ac=getAC(),o=ac.createOscillator(),g=ac.createGain();
+  o.connect(g);g.connect(ac.destination);o.type=t;
+  o.frequency.setValueAtTime(sf||f,ac.currentTime);
+  if(sf)o.frequency.linearRampToValueAtTime(f,ac.currentTime+d);
+  g.gain.setValueAtTime(v,ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+d);
+  o.start();o.stop(ac.currentTime+d);}catch(e){}
+}
+const SFX={
+  flap:()=>playTone(600,'square',0.08,0.18,400),
+  point:()=>playTone(880,'sine',0.12,0.25,660),
+  hit:()=>playTone(150,'sawtooth',0.3,0.35),
+  die:()=>playTone(80,'sawtooth',0.5,0.35,200),
+  count:()=>playTone(660,'sine',0.12,0.3),
+  go:()=>playTone(880,'sine',0.2,0.4,660),
+};
+
+// ─── CANVAS ───────────────────────────────────────────────────────────────────
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let scale=1;
+function resize(){
+  scale=Math.min(window.innerWidth/CFG.W,(window.innerHeight-44)/CFG.H);
+  canvas.width=CFG.W*scale;canvas.height=CFG.H*scale;
+  ctx.setTransform(scale,0,0,scale,0,0);
+}
 resize();window.addEventListener('resize',resize);
+
+// ─── RNG ──────────────────────────────────────────────────────────────────────
 function makeRng(seed){let s=seed;return()=>{s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};}
 
+// ─── STATE ────────────────────────────────────────────────────────────────────
 const socket=io();
-let myId=null,myColor='#f5c842',isHost=false,gameState='lobby';
+let myId=null,myColor='#f5c842',isHost=false,gameState='lobby',myAlive=false;
 const remotePlayers={};
+let pendingSeed=null; // set during countdown
 
-socket.on('welcome',(d)=>{myId=d.id;myColor=d.color;isHost=d.isHost;gameState=d.state;updateStartBtn();});
-socket.on('you_are_host',()=>{isHost=true;updateStartBtn();document.getElementById('play-again-btn').style.display='block';document.getElementById('waiting-next').style.display='none';});
-socket.on('host_timeout',()=>{alert('You were removed as host for not starting the game in time.');});
-socket.on('lobby_update',(data)=>{renderLobby(data);gameState=data.state;updateStartBtn();updateTimer(data.timerSecsLeft);});
+// ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
+socket.on('welcome',(d)=>{
+  myId=d.id;myColor=d.color;isHost=d.isHost;gameState=d.state;updateStartBtn();
+});
+socket.on('you_are_host',()=>{
+  isHost=true;updateStartBtn();
+  document.getElementById('play-again-btn').style.display='block';
+  document.getElementById('waiting-next').style.display='none';
+});
+socket.on('host_timeout',()=>alert('You were removed as host for not starting in time.'));
+
+socket.on('lobby_update',(data)=>{
+  renderLobby(data);gameState=data.state;updateStartBtn();updateTimer(data.timerSecsLeft);
+});
 socket.on('player_left',(d)=>{delete remotePlayers[d.id];updateHUD();});
-socket.on('game_start',(d)=>{gameState='playing';showScreen('game-screen');startGame(d.pipeSeed);});
-socket.on('player_update',(d)=>{if(remotePlayers[d.id]){remotePlayers[d.id].y=d.y;remotePlayers[d.id].angle=d.angle;remotePlayers[d.id].score=d.score;}});
-socket.on('player_died',(d)=>{if(remotePlayers[d.id]){remotePlayers[d.id].alive=false;remotePlayers[d.id].score=d.score;updateHUD();}});
-socket.on('game_over',(d)=>{gameState='scoreboard';stopGame();showScoreboard(d.scores);});
 
+socket.on('countdown',(d)=>{
+  if(d.pipeSeed!==undefined)pendingSeed=d.pipeSeed;
+  showScreen('game-screen');
+  const el=document.getElementById('countdown-num');
+  const overlay=document.getElementById('countdown-overlay');
+  overlay.classList.add('active');
+  el.textContent=d.count;
+  el.style.animation='none';void el.offsetWidth;el.style.animation='countPop 0.35s ease-out';
+  if(d.count===1)SFX.go();else SFX.count();
+  // Pre-position birds during countdown
+  if(d.pipeSeed!==undefined){initGameVisuals(d.pipeSeed);}
+});
+
+socket.on('game_start',(d)=>{
+  gameState='playing';myAlive=true;
+  document.getElementById('countdown-overlay').classList.remove('active');
+  document.getElementById('game-chat-bar').classList.remove('active');
+  startGame(pendingSeed!==null?pendingSeed:d.pipeSeed);
+});
+
+socket.on('player_update',(d)=>{
+  if(remotePlayers[d.id]){remotePlayers[d.id].y=d.y;remotePlayers[d.id].angle=d.angle;remotePlayers[d.id].score=d.score;}
+});
+socket.on('player_died',(d)=>{
+  if(remotePlayers[d.id]){remotePlayers[d.id].alive=false;remotePlayers[d.id].score=d.score;updateHUD();}
+});
+socket.on('game_over',(d)=>{
+  gameState='scoreboard';myAlive=false;stopGame();
+  document.getElementById('game-chat-bar').classList.remove('active');
+  showScoreboard(d.scores);
+});
+
+socket.on('chat_msg',(msg)=>{
+  appendChat('lobby-chat',msg);
+  appendChat('score-chat',msg);
+  if(gameState==='playing'||gameState==='countdown'){addFloatingMsg(msg);}
+});
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+function appendChat(elId, msg){
+  const box=document.getElementById(elId);if(!box)return;
+  const div=document.createElement('div');div.className='chat-line';
+  div.innerHTML=`<span class="chat-name" style="color:${msg.color}">${escHtml(msg.name)}:</span> ${escHtml(msg.text)}`;
+  box.appendChild(div);box.scrollTop=box.scrollHeight;
+  // keep max 60 lines
+  while(box.children.length>60)box.removeChild(box.firstChild);
+}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sendChat(inputId){
+  const inp=document.getElementById(inputId);
+  const text=inp.value.trim();if(!text)return;
+  socket.emit('chat',{text});inp.value='';
+}
+// Lobby chat
+document.getElementById('lobby-chat-send').addEventListener('click',()=>sendChat('lobby-chat-in'));
+document.getElementById('lobby-chat-in').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat('lobby-chat-in');});
+// Score chat
+document.getElementById('score-chat-send').addEventListener('click',()=>sendChat('score-chat-in'));
+document.getElementById('score-chat-in').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat('score-chat-in');});
+// Game chat (dead players)
+document.getElementById('game-chat-send').addEventListener('click',()=>sendChat('game-chat-in'));
+document.getElementById('game-chat-in').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat('game-chat-in');});
+
+function addFloatingMsg(msg){
+  const layer=document.getElementById('float-layer');
+  const div=document.createElement('div');div.className='float-msg';
+  // Random Y avoiding top HUD area and bottom ground
+  const yMin=40,yMax=CFG.H*scale-CFG.groundH*scale-20;
+  div.style.top=(yMin+Math.random()*(yMax-yMin))+'px';
+  div.style.color=msg.color;
+  div.textContent=`${msg.name}: ${msg.text}`;
+  layer.appendChild(div);
+  setTimeout(()=>div.remove(),7200);
+}
+
+// ─── LOBBY ────────────────────────────────────────────────────────────────────
 function updateTimer(secsLeft){
   const wrap=document.getElementById('timer-wrap');
   const bar=document.getElementById('timer-bar');
@@ -110,42 +300,54 @@ function updateTimer(secsLeft){
   bar.style.width=(secsLeft/30*100)+'%';
   bar.style.background=secsLeft<=10?'#ff6b6b':secsLeft<=20?'#ff9f43':'#ffe84a';
 }
-
 function renderLobby({players,hostId}){
   const ul=document.getElementById('player-list');ul.innerHTML='';
-  players.forEach(p=>{if(p.id!==myId){remotePlayers[p.id]=remotePlayers[p.id]||{};Object.assign(remotePlayers[p.id],{color:p.color,name:p.name,alive:true,y:256,angle:0,score:0});}});
+  players.forEach(p=>{
+    if(p.id!==myId){
+      remotePlayers[p.id]=remotePlayers[p.id]||{};
+      Object.assign(remotePlayers[p.id],{color:p.color,name:p.name,alive:true,y:256,angle:0,score:0});
+    }
+  });
   players.forEach(p=>{
     const li=document.createElement('li');
-    const dot='<span class="player-dot" style="background:'+p.color+'"></span>';
+    const dot=`<span class="player-dot" style="background:${p.color}"></span>`;
     const badge=p.id===hostId?'<span class="host-badge">HOST</span>':'';
-    const you=p.id===myId?' <span style="color:#aaa;font-size:0.8rem">(you)</span>':'';
+    const you=p.id===myId?' <span style="color:#aaa;font-size:0.78rem">(you)</span>':'';
     li.innerHTML=dot+'<span>'+p.name+you+'</span>'+badge;
     ul.appendChild(li);
   });
   document.getElementById('waiting-msg').style.display=players.length<2?'block':'none';
 }
-
-function updateStartBtn(){const btn=document.getElementById('start-btn');btn.disabled=!isHost;btn.textContent=isHost?'Start Game':'Waiting for host…';}
+function updateStartBtn(){
+  const btn=document.getElementById('start-btn');
+  btn.disabled=!isHost;
+  btn.textContent=isHost?'Start Game':'Waiting for host…';
+}
 document.getElementById('start-btn').addEventListener('click',()=>{if(isHost)socket.emit('start_game');});
 document.getElementById('name-input').addEventListener('input',e=>socket.emit('set_name',e.target.value.trim()||'Bird'));
 document.getElementById('play-again-btn').addEventListener('click',()=>socket.emit('start_game'));
 
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
 
+// ─── HUD ──────────────────────────────────────────────────────────────────────
 function updateHUD(){
   const hud=document.getElementById('hud');hud.innerHTML='';
-  const myDiv=document.createElement('div');
-  myDiv.className='hud-score'+(myBird&&!myBird.alive?' dead':'');
-  myDiv.innerHTML='<span class="hud-dot" style="background:'+myColor+'"></span>'+score;
-  hud.appendChild(myDiv);
+  const me=document.createElement('div');
+  me.className='hud-score'+(myBird&&!myBird.alive?' dead':'');
+  me.innerHTML=`<span class="hud-dot" style="background:${myColor}"></span>${score}`;
+  hud.appendChild(me);
   Object.values(remotePlayers).forEach(p=>{
     const d=document.createElement('div');
     d.className='hud-score'+(!p.alive?' dead':'');
-    d.innerHTML='<span class="hud-dot" style="background:'+p.color+'"></span>'+(p.score||0);
+    d.innerHTML=`<span class="hud-dot" style="background:${p.color}"></span>${p.score||0}`;
     hud.appendChild(d);
   });
 }
 
+// ─── SCOREBOARD ───────────────────────────────────────────────────────────────
 function showScoreboard(scores){
   showScreen('scoreboard-screen');
   const ul=document.getElementById('score-list');ul.innerHTML='';
@@ -153,30 +355,60 @@ function showScoreboard(scores){
   scores.forEach((p,i)=>{
     const li=document.createElement('li');
     const winner=i===0?'<span class="winner-badge">WINNER</span>':'';
-    const you=p.id===myId?' <span style="color:#aaa;font-size:0.8rem">(you)</span>':'';
-    li.innerHTML='<span class="rank">'+(medals[i]||(i+1))+'</span><span class="player-dot" style="background:'+p.color+'"></span><span class="score-name">'+p.name+you+'</span>'+winner+'<span class="score-val">'+p.score+'</span>';
+    const you=p.id===myId?' <span style="color:#aaa;font-size:0.78rem">(you)</span>':'';
+    li.innerHTML=`<span class="rank">${medals[i]||(i+1)}</span><span class="player-dot" style="background:${p.color}"></span><span class="score-name">${escHtml(p.name)}${you}</span>${winner}<span class="score-val">${p.score}</span>`;
     ul.appendChild(li);
   });
-  if(isHost){document.getElementById('play-again-btn').style.display='block';document.getElementById('waiting-next').style.display='none';}
-  else{document.getElementById('play-again-btn').style.display='none';document.getElementById('waiting-next').style.display='block';}
+  if(isHost){
+    document.getElementById('play-again-btn').style.display='block';
+    document.getElementById('waiting-next').style.display='none';
+  } else {
+    document.getElementById('play-again-btn').style.display='none';
+    document.getElementById('waiting-next').style.display='block';
+  }
 }
 
+// ─── GAME ─────────────────────────────────────────────────────────────────────
 let myBird,pipes,score,pipeTimer,bgX,groundX,rng,rafId=null,last=0,posUpdateTimer=0;
 
-function startGame(seed){
+function initGameVisuals(seed){
   rng=makeRng(seed);
   myBird={x:60,y:CFG.H/2-20,vy:0,angle:0,frame:0,frameTimer:0,alive:true};
   pipes=[];score=0;pipeTimer=CFG.pipeInterval;bgX=0;groundX=0;
   Object.values(remotePlayers).forEach(p=>{p.alive=true;p.score=0;p.y=CFG.H/2-20;p.angle=0;});
   updateHUD();
+  // Draw static frame during countdown
+  draw();
+}
+
+function startGame(seed){
+  if(!seed)return;
+  // Re-init with same seed to ensure determinism
+  rng=makeRng(seed);
+  myBird={x:60,y:CFG.H/2-20,vy:0,angle:0,frame:0,frameTimer:0,alive:true};
+  pipes=[];score=0;pipeTimer=CFG.pipeInterval;bgX=0;groundX=0;
+  Object.values(remotePlayers).forEach(p=>{p.alive=true;p.score=0;p.y=CFG.H/2-20;p.angle=0;});
+  myAlive=true;
+  updateHUD();
   if(rafId)cancelAnimationFrame(rafId);
   last=performance.now();
   rafId=requestAnimationFrame(loop);
 }
+
 function stopGame(){if(rafId){cancelAnimationFrame(rafId);rafId=null;}}
 function loop(ts){const dt=Math.min((ts-last)/1000,0.05);last=ts;update(dt);draw();rafId=requestAnimationFrame(loop);}
-function flap(){if(!myBird||!myBird.alive)return;myBird.vy=CFG.flapImpulse;SFX.flap();}
-function spawnPipe(){const maxTopH=CFG.H-CFG.groundH-CFG.gapH-CFG.pipeMinY;pipes.push({x:CFG.W+4,topH:CFG.pipeMinY+rng()*maxTopH,scored:false});}
+
+function flap(){
+  if(!myBird||!myBird.alive)return;
+  // Don't allow flap input in game-chat-in
+  if(document.activeElement===document.getElementById('game-chat-in'))return;
+  myBird.vy=CFG.flapImpulse;SFX.flap();
+}
+
+function spawnPipe(){
+  const maxTopH=CFG.H-CFG.groundH-CFG.gapH-CFG.pipeMinY;
+  pipes.push({x:CFG.W+4,topH:CFG.pipeMinY+rng()*maxTopH,scored:false});
+}
 
 function update(dt){
   bgX+=CFG.scrollSpeed*0.5*dt;groundX+=CFG.scrollSpeed*dt;
@@ -189,38 +421,65 @@ function update(dt){
   myBird.angle+=(ta-myBird.angle)*Math.min(1,dt*8);
   myBird.frameTimer+=dt;if(myBird.frameTimer>0.1){myBird.frame=(myBird.frame+1)%3;myBird.frameTimer=0;}
   if(myBird.y<-10){myBird.y=-10;myBird.vy=0;}
-  pipes.forEach(p=>{if(!p.scored&&p.x+CFG.pipeW<myBird.x){p.scored=true;score++;SFX.point();updateHUD();}});
+  pipes.forEach(p=>{
+    if(!p.scored&&p.x+CFG.pipeW<myBird.x){p.scored=true;score++;SFX.point();updateHUD();}
+  });
   const br={x:myBird.x+4,y:myBird.y+2,w:26,h:22};
   for(const p of pipes){
     if(ro(br,{x:p.x,y:0,w:CFG.pipeW,h:p.topH})||ro(br,{x:p.x,y:p.topH+CFG.gapH,w:CFG.pipeW,h:CFG.H})){kill();return;}
   }
   if(myBird.y+24>=CFG.H-CFG.groundH){kill();return;}
-  posUpdateTimer+=dt;if(posUpdateTimer>=0.05){posUpdateTimer=0;socket.emit('position',{y:myBird.y,angle:myBird.angle,score});}
+  posUpdateTimer+=dt;
+  if(posUpdateTimer>=0.05){posUpdateTimer=0;socket.emit('position',{y:myBird.y,angle:myBird.angle,score});}
 }
-function kill(){myBird.alive=false;SFX.hit();setTimeout(()=>SFX.die(),200);socket.emit('player_died',{score});updateHUD();}
+
+function kill(){
+  myBird.alive=false;myAlive=false;
+  SFX.hit();setTimeout(()=>SFX.die(),200);
+  socket.emit('player_died',{score});
+  updateHUD();
+  // Show chat bar for dead player
+  document.getElementById('game-chat-bar').classList.add('active');
+  document.getElementById('game-chat-in').focus();
+}
+
 function ro(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
+// ─── DRAW ─────────────────────────────────────────────────────────────────────
 function draw(){
-  ctx.clearRect(0,0,CFG.W,CFG.H);drawBg();
+  ctx.clearRect(0,0,CFG.W,CFG.H);
+  drawBg();
   pipes.forEach(p=>{drawPipe(p.x,0,p.topH,true);drawPipe(p.x,p.topH+CFG.gapH,CFG.H-CFG.groundH-p.topH-CFG.gapH,false);});
   drawGround();
+  // Ghost birds
   Object.values(remotePlayers).forEach(p=>{if(p.alive)drawBird(60,p.y,p.angle,0,p.color,0.4);});
+  // My bird
   if(myBird){
     if(myBird.alive)drawBird(myBird.x,myBird.y,myBird.angle,myBird.frame,myColor,1);
     else drawBird(myBird.x,Math.min(myBird.y,CFG.H-CFG.groundH-24),Math.PI/2,0,myColor,0.4);
   }
+  // Remote player names
   Object.values(remotePlayers).forEach(p=>{
-    if(p.alive){ctx.save();ctx.font='bold 9px Courier New';ctx.textAlign='center';ctx.fillStyle=p.color;ctx.fillText(p.name,77,p.y-6);ctx.restore();}
+    if(p.alive){
+      ctx.save();ctx.font='bold 9px Courier New';ctx.textAlign='center';
+      ctx.fillStyle=p.color;ctx.fillText(p.name,77,p.y-6);ctx.restore();
+    }
   });
 }
+
 function drawBg(){
   const sky=ctx.createLinearGradient(0,0,0,CFG.H-CFG.groundH);
   sky.addColorStop(0,'#70c5ce');sky.addColorStop(1,'#c9eaf5');
   ctx.fillStyle=sky;ctx.fillRect(0,0,CFG.W,CFG.H-CFG.groundH);
   const clouds=[{x:40,y:60,r:22},{x:140,y:40,r:18},{x:230,y:80,r:20}];
   ctx.fillStyle='rgba(255,255,255,0.85)';
-  clouds.forEach(c=>{const cx=((c.x-bgX*0.4)%(CFG.W+80)+CFG.W+80)%(CFG.W+80)-40;ctx.beginPath();ctx.arc(cx,c.y,c.r,0,Math.PI*2);ctx.arc(cx+20,c.y-8,c.r*0.7,0,Math.PI*2);ctx.arc(cx-18,c.y-4,c.r*0.6,0,Math.PI*2);ctx.fill();});
+  clouds.forEach(c=>{
+    const cx=((c.x-bgX*0.4)%(CFG.W+80)+CFG.W+80)%(CFG.W+80)-40;
+    ctx.beginPath();ctx.arc(cx,c.y,c.r,0,Math.PI*2);
+    ctx.arc(cx+20,c.y-8,c.r*0.7,0,Math.PI*2);ctx.arc(cx-18,c.y-4,c.r*0.6,0,Math.PI*2);ctx.fill();
+  });
 }
+
 function drawGround(){
   const gY=CFG.H-CFG.groundH;
   ctx.fillStyle='#dda64a';ctx.fillRect(0,gY,CFG.W,CFG.groundH);
@@ -228,6 +487,7 @@ function drawGround(){
   ctx.fillStyle='#4a7025';
   for(let bx=((-groundX*0.8)%24+24)%24;bx<CFG.W+24;bx+=24)ctx.fillRect(bx,gY,8,16);
 }
+
 function drawPipe(x,y,h,flipped){
   const w=CFG.pipeW,capH=16,capW=w+8;
   const g=ctx.createLinearGradient(x,0,x+w,0);
@@ -236,6 +496,7 @@ function drawPipe(x,y,h,flipped){
   const capX=x-(capW-w)/2,capY=flipped?y+h-capH:y;
   ctx.fillStyle=g;ctx.fillRect(capX,capY,capW,capH);ctx.strokeRect(capX,capY,capW,capH);
 }
+
 function drawBird(x,y,angle,frame,color,alpha){
   ctx.save();ctx.globalAlpha=alpha;ctx.translate(x+17,y+12);ctx.rotate(angle);
   ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,17,12,0,0,Math.PI*2);ctx.fill();
@@ -248,7 +509,15 @@ function drawBird(x,y,angle,frame,color,alpha){
   ctx.fillStyle='#f07b1d';ctx.beginPath();ctx.moveTo(14,-1);ctx.lineTo(22,2);ctx.lineTo(14,5);ctx.closePath();ctx.fill();
   ctx.restore();
 }
-document.addEventListener('keydown',e=>{if(e.code==='Space'&&gameState==='playing'){e.preventDefault();flap();}});
+
+// ─── INPUT ────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'&&gameState==='playing'){
+    if(document.activeElement!==document.getElementById('game-chat-in')){
+      e.preventDefault();flap();
+    }
+  }
+});
 canvas.addEventListener('click',()=>{if(gameState==='playing')flap();});
 canvas.addEventListener('touchstart',e=>{e.preventDefault();if(gameState==='playing')flap();},{passive:false});
 </script>
